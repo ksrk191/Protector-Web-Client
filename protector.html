@@ -82,18 +82,23 @@
         loadAdminPage();
       } else {
         document.getElementById("errorMsg").innerText = "Wrong code";
-        // regenerate unique code
         uniqueCode = generateUniqueCode();
         document.getElementById("uniqueCode").innerText = uniqueCode;
         document.getElementById("codeInput").value = "";
       }
     }
 
-    function loadUserWebsite() {
-      let userHTML = localStorage.getItem("userWebsite");
-      if (userHTML) {
-        document.body.innerHTML = userHTML;
-      } else {
+    async function loadUserWebsite() {
+      try {
+        // Fetch directly from Google Drive shared file link (requires proper file ID + sharing settings)
+        let response = await fetch("https://drive.google.com/uc?export=download&id=1pHhzV9l-ZYYXH7FA_jegCTR8-mSPvg_7");
+        if (response.ok) {
+          let text = await response.text();
+          document.body.innerHTML = text;
+        } else {
+          document.body.innerHTML = "<h2 style='color:white;text-align:center;'>No website available for users yet</h2>";
+        }
+      } catch (e) {
         document.body.innerHTML = "<h2 style='color:white;text-align:center;'>No website available for users yet</h2>";
       }
     }
@@ -151,15 +156,18 @@
       }
       let reader = new FileReader();
       reader.onload = function (e) {
+        // NOTE: To truly automate saving to Google Drive, integration with Google Drive API + OAuth is required.
+        // This demo only stores locally.
         localStorage.setItem("userWebsite", e.target.result);
-        alert("Website uploaded successfully!");
+        alert("Website uploaded successfully! (To sync with Google Drive, API integration is required)");
       };
       reader.readAsText(file);
     }
 
     function clearWebsite() {
+      // NOTE: Removing from Google Drive also requires API integration.
       localStorage.removeItem("userWebsite");
-      alert("User website removed successfully!");
+      alert("User website removed successfully! (Drive removal requires API integration)");
     }
   </script>
 </body>
