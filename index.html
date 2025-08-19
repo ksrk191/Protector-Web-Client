@@ -1,174 +1,247 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>Protector / Shielder</title>
   <style>
-    body {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background: linear-gradient(135deg, #1e3c72, #2a5298);
-      font-family: Arial, sans-serif;
-      color: #fff;
-    }
-    .container {
-      background: rgba(0, 0, 0, 0.4);
-      padding: 30px;
-      border-radius: 15px;
-      text-align: center;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-    }
-    input {
-      padding: 10px;
-      margin: 10px 0;
-      border: none;
-      border-radius: 5px;
-      width: 200px;
-    }
-    button {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      background-color: #4caf50;
-      color: white;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    .error {
-      color: red;
-      margin-top: 10px;
-    }
+    body{display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;background:linear-gradient(135deg,#1e3c72,#2a5298);font-family:Arial;color:#fff}
+    .container{background:rgba(0,0,0,.45);padding:28px;border-radius:12px;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.45)}
+    input{padding:10px;margin:8px 0;border-radius:6px;border:0;width:220px}
+    button{padding:10px 16px;border-radius:6px;border:0;background:#4caf50;color:#fff;cursor:pointer}
+    button.danger{background:#e04; margin-top:10px}
+    .error{color:#ff8080;margin-top:8px}
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="front">
     <h1>Protector / Shielder</h1>
     <p>Your Unique Code:</p>
     <h2 id="uniqueCode"></h2>
-    <input type="text" id="codeInput" placeholder="Enter the code" />
-    <br />
-    <button onclick="checkCode()">NEXT</button>
+    <input id="codeInput" placeholder="Enter the code" />
+    <br><button id="nextBtn">NEXT</button>
     <p id="errorMsg" class="error"></p>
   </div>
 
+  <!-- Google API scripts -->
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
   <script>
-    let uniqueCode = generateUniqueCode();
-    let adminPass = localStorage.getItem("adminPass") || "191";
-    let secondaryPass = localStorage.getItem("secondaryPass") || "201";
+  // ---- CONFIG: replace these with your values ----
+  const CLIENT_ID = "274863399650-7nc6qh9b72p1f8ea6qskn8imbtpbb9dc.apps.googleusercontent.com";
+  const API_KEY = "AIzaSyBf_EsV0DMvBAX6KKz_1GwstK2i-RRRlcU";
+  const FOLDER_ID = "1pHhzV9l-ZYYXH7FA_jegCTR8-mSPvg_7"; // e.g. 1pHhzV9l-ZYYXH7FA_jegCTR8-mSPvg_7
+  const SCOPES = "https://www.googleapis.com/auth/drive.file";
+  // -----------------------------------------------
 
-    document.getElementById("uniqueCode").innerText = uniqueCode;
+  // app state
+  let uniqueCode = generateUniqueCode();
+  let adminPass = localStorage.getItem("adminPass") || "191";
+  let secondaryPass = localStorage.getItem("secondaryPass") || "201";
+  let tokenClient, gapiInited=false, gisInited=false;
 
-    function generateUniqueCode() {
-      let now = new Date();
-      let h = now.getHours();
-      let m = now.getMinutes();
-      let s = now.getSeconds();
-      let ms = now.getMilliseconds();
-      return h * m * s * ms;
+  document.getElementById("uniqueCode").innerText = uniqueCode;
+  document.getElementById("nextBtn").addEventListener("click", checkCode);
+
+  function generateUniqueCode(){
+    const now=new Date();
+    return now.getHours()*now.getMinutes()*now.getSeconds()*now.getMilliseconds();
+  }
+
+  function checkCode(){
+    const entered = document.getElementById("codeInput").value.trim();
+    if(entered === uniqueCode.toString()){
+      loadUserWebsite();
+    } else if(entered === adminPass || entered === secondaryPass){
+      loadAdminPage();
+    } else {
+      document.getElementById("errorMsg").innerText = "Wrong code";
+      uniqueCode = generateUniqueCode();
+      document.getElementById("uniqueCode").innerText = uniqueCode;
+      document.getElementById("codeInput").value = "";
     }
+  }
 
-    function checkCode() {
-      let entered = document.getElementById("codeInput").value.trim();
+  /* ---------- GOOGLE API INIT ---------- */
+  function gapiLoaded(){
+    gapi.load("client", initializeGapiClient);
+  }
+  async function initializeGapiClient(){
+    await gapi.client.init({
+      apiKey: API_KEY,
+      discoveryDocs: ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]
+    });
+    gapiInited = true;
+  }
+  function gisLoaded(){
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: "" // set later
+    });
+    gisInited = true;
+  }
 
-      if (entered === uniqueCode.toString()) {
-        loadUserWebsite();
-      } else if (entered === adminPass || entered === secondaryPass) {
-        loadAdminPage();
-      } else {
-        document.getElementById("errorMsg").innerText = "Wrong code";
-        uniqueCode = generateUniqueCode();
-        document.getElementById("uniqueCode").innerText = uniqueCode;
-        document.getElementById("codeInput").value = "";
-      }
-    }
-
-    async function loadUserWebsite() {
-      try {
-        // Fetch directly from Google Drive shared file link (requires proper file ID + sharing settings)
-        let response = await fetch("https://drive.google.com/uc?export=download&id=1pHhzV9l-ZYYXH7FA_jegCTR8-mSPvg_7");
-        if (response.ok) {
-          let text = await response.text();
-          document.body.innerHTML = text;
-        } else {
-          document.body.innerHTML = "<h2 style='color:white;text-align:center;'>No website available for users yet</h2>";
-        }
-      } catch (e) {
-        document.body.innerHTML = "<h2 style='color:white;text-align:center;'>No website available for users yet</h2>";
-      }
-    }
-
-    function loadAdminPage() {
-      document.body.innerHTML = `
-        <div class="container">
-          <h1>Admin Settings</h1>
-          <label>Change Admin Password (current: ${adminPass}):</label><br />
-          <input type="text" id="newPass" placeholder="Enter new admin password" /><br />
-          <button onclick="changePassword('admin')">Update Admin Password</button>
-          <br /><br />
-
-          <label>Change Secondary Password (current: ${secondaryPass}):</label><br />
-          <input type="text" id="newPass2" placeholder="Enter new secondary password" /><br />
-          <button onclick="changePassword('secondary')">Update Secondary Password</button>
-          <br /><br />
-
-          <label>Upload Website HTML:</label><br />
-          <input type="file" id="fileInput" /><br /><br />
-          <button onclick="uploadWebsite()">Upload</button>
-          <br /><br />
-
-          <button onclick="clearWebsite()" style="background-color:red;">Remove Uploaded Website</button>
-        </div>
-      `;
-    }
-
-    function changePassword(type) {
-      if (type === "admin") {
-        let newPass = document.getElementById("newPass").value.trim();
-        if (newPass) {
-          localStorage.setItem("adminPass", newPass);
-          alert("Admin password updated successfully!");
-        } else {
-          alert("Enter valid password");
-        }
-      } else if (type === "secondary") {
-        let newPass2 = document.getElementById("newPass2").value.trim();
-        if (newPass2) {
-          localStorage.setItem("secondaryPass", newPass2);
-          alert("Secondary password updated successfully!");
-        } else {
-          alert("Enter valid password");
-        }
-      }
-    }
-
-    function uploadWebsite() {
-      let fileInput = document.getElementById("fileInput");
-      let file = fileInput.files[0];
-      if (!file) {
-        alert("Please select a file");
+  function ensureSignedIn(callback){
+    tokenClient.callback = async (resp) => {
+      if(resp.error){
+        console.error("Auth error", resp);
+        alert("Authentication failed");
         return;
       }
-      let reader = new FileReader();
-      reader.onload = function (e) {
-        // NOTE: To truly automate saving to Google Drive, integration with Google Drive API + OAuth is required.
-        // This demo only stores locally.
-        localStorage.setItem("userWebsite", e.target.result);
-        alert("Website uploaded successfully! (To sync with Google Drive, API integration is required)");
-      };
-      reader.readAsText(file);
-    }
+      callback();
+    };
+    // request token (will prompt consent once)
+    tokenClient.requestAccessToken({ prompt: "consent" });
+  }
 
-    function clearWebsite() {
-      // NOTE: Removing from Google Drive also requires API integration.
-      localStorage.removeItem("userWebsite");
-      alert("User website removed successfully! (Drive removal requires API integration)");
+  /* ---------- ADMIN PAGE ---------- */
+  function loadAdminPage(){
+    document.body.innerHTML = `
+      <div class="container">
+        <h1>Admin Settings</h1>
+        <div>
+          <label>Change Admin Password (current: ${adminPass}):</label><br>
+          <input id="newPass" placeholder="Enter new admin password"><br>
+          <button id="updateAdmin">Update Admin Password</button>
+        </div>
+        <br>
+        <div>
+          <label>Change Secondary Password (current: ${secondaryPass}):</label><br>
+          <input id="newPass2" placeholder="Enter new secondary password"><br>
+          <button id="updateSec">Update Secondary Password</button>
+        </div>
+        <hr>
+        <div>
+          <label>Upload Website HTML:</label><br>
+          <input type="file" id="fileInput"><br><br>
+          <button id="uploadBtn">Upload to Drive</button>
+        </div>
+        <br>
+        <button id="removeBtn" class="danger">Remove Uploaded Website</button>
+        <p id="adminMsg"></p>
+      </div>
+    `;
+    document.getElementById("updateAdmin").onclick = () => changePassword('admin');
+    document.getElementById("updateSec").onclick = () => changePassword('secondary');
+    document.getElementById("uploadBtn").onclick = uploadWebsiteHandler;
+    document.getElementById("removeBtn").onclick = removeUploadedWebsite;
+  }
+
+  function changePassword(type){
+    if(type === "admin"){
+      const np = document.getElementById("newPass").value.trim();
+      if(np){ localStorage.setItem("adminPass", np); adminPass = np; alert("Admin password updated"); }
+      else alert("Enter valid password");
+    } else {
+      const np2 = document.getElementById("newPass2").value.trim();
+      if(np2){ localStorage.setItem("secondaryPass", np2); secondaryPass = np2; alert("Secondary password updated"); }
+      else alert("Enter valid password");
     }
+  }
+
+  /* ---------- UPLOAD HANDLER ---------- */
+  function uploadWebsiteHandler(){
+    const f = document.getElementById("fileInput").files[0];
+    if(!f){ alert("Select a file first"); return; }
+    // ensure signed in then upload
+    ensureSignedIn(async () => {
+      try {
+        const meta = { name: f.name, mimeType: f.type || "text/html", parents: [FOLDER_ID] };
+        const form = new FormData();
+        form.append("metadata", new Blob([JSON.stringify(meta)], { type: "application/json" }));
+        form.append("file", f);
+        const tokenObj = gapi.client.getToken();
+        const access_token = tokenObj && tokenObj.access_token ? tokenObj.access_token : null;
+        const res = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
+          method: "POST",
+          headers: access_token ? { Authorization: "Bearer " + access_token } : {},
+          body: form
+        });
+        const j = await res.json();
+        if(j.id){
+          // try to make it public (anyone with link)
+          try {
+            await fetch(`https://www.googleapis.com/drive/v3/files/${j.id}/permissions`, {
+              method: "POST",
+              headers: access_token ? { Authorization: "Bearer " + access_token, "Content-Type":"application/json" } : {"Content-Type":"application/json"},
+              body: JSON.stringify({ role: "reader", type: "anyone" })
+            });
+          } catch(e){
+            console.warn("Could not set public permission automatically:", e);
+          }
+          alert("Uploaded successfully with File ID: " + j.id);
+        } else {
+          console.error("Upload failed", j);
+          alert("Upload failed see console");
+        }
+      } catch(err){
+        console.error(err);
+        alert("Upload error, check console");
+      }
+    });
+  }
+
+  /* ---------- LIST and LOAD latest html from folder ---------- */
+  async function loadUserWebsite(){
+    // try to list files in folder (files created by the app)
+    try {
+      // If we have not yet authenticated for read, we'll attempt a no-auth fetch of a previously stored file link:
+      if(!gapiInited) {
+        // fallback: see localStorage for saved HTML
+        const saved = localStorage.getItem("userWebsite");
+        if(saved){ document.documentElement.innerHTML = saved; return; }
+      }
+      // request access token then list files
+      ensureSignedIn(async () => {
+        const res = await gapi.client.drive.files.list({
+          q: `'${FOLDER_ID}' in parents and trashed = false`,
+          fields: "files(id,name,createdTime)",
+          orderBy: "createdTime desc",
+          pageSize: 10
+        });
+        const files = res.result.files || [];
+        if(files.length === 0){
+          document.body.innerHTML = "<h2 style='color:white;text-align:center;'>No website available for users yet</h2>";
+          return;
+        }
+        // choose the newest file
+        const fileId = files[0].id;
+        // fetch file content as media
+        const tokenObj = gapi.client.getToken();
+        const access_token = tokenObj && tokenObj.access_token ? tokenObj.access_token : null;
+        const fetchRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+          headers: access_token ? { Authorization: "Bearer " + access_token } : {}
+        });
+        const text = await fetchRes.text();
+        // render uploaded HTML
+        document.open();
+        document.write(text);
+        document.close();
+      });
+    } catch(e){
+      console.error(e);
+      document.body.innerHTML = "<h2 style='color:white;text-align:center;'>No website available for users yet</h2>";
+    }
+  }
+
+  /* ---------- REMOVE uploaded website (deletes newest) ---------- */
+  async function removeUploadedWebsite(){
+    ensureSignedIn(async () => {
+      const res = await gapi.client.drive.files.list({
+        q: `'${FOLDER_ID}' in parents and trashed = false`,
+        fields: "files(id,name,createdTime)",
+        orderBy: "createdTime desc",
+        pageSize: 10
+      });
+      const files = res.result.files || [];
+      if(files.length === 0){ alert("No website to remove"); return; }
+      const fileId = files[0].id;
+      await gapi.client.drive.files.delete({ fileId });
+      alert("Removed website from Drive (file id: " + fileId + ")");
+    });
+  }
   </script>
 </body>
 </html>
