@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Protector / Shielder</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #1e3c72, #2a5298);
+      font-family: Arial, sans-serif;
+      color: #fff;
+    }
+    .container {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 30px;
+      border-radius: 15px;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+    }
+    input {
+      padding: 10px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 5px;
+      width: 200px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      background-color: #4caf50;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .error {
+      color: red;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Protector / Shielder</h1>
+    <p>Your Unique Code:</p>
+    <h2 id="uniqueCode"></h2>
+    <input type="text" id="codeInput" placeholder="Enter the code" />
+    <br />
+    <button onclick="checkCode()">NEXT</button>
+    <p id="errorMsg" class="error"></p>
+  </div>
+
+  <script>
+    let uniqueCode = generateUniqueCode();
+    let adminPass = localStorage.getItem("adminPass") || "191";
+    let secondaryPass = localStorage.getItem("secondaryPass") || "201";
+
+    document.getElementById("uniqueCode").innerText = uniqueCode;
+
+    function generateUniqueCode() {
+      let now = new Date();
+      let h = now.getHours();
+      let m = now.getMinutes();
+      let s = now.getSeconds();
+      let ms = now.getMilliseconds();
+      return h * m * s * ms;
+    }
+
+    function checkCode() {
+      let entered = document.getElementById("codeInput").value.trim();
+
+      if (entered === uniqueCode.toString()) {
+        loadUserWebsite();
+      } else if (entered === adminPass || entered === secondaryPass) {
+        loadAdminPage();
+      } else {
+        document.getElementById("errorMsg").innerText = "Wrong code";
+        // regenerate unique code
+        uniqueCode = generateUniqueCode();
+        document.getElementById("uniqueCode").innerText = uniqueCode;
+        document.getElementById("codeInput").value = "";
+      }
+    }
+
+    function loadUserWebsite() {
+      let userHTML = localStorage.getItem("userWebsite");
+      if (userHTML) {
+        document.body.innerHTML = userHTML;
+      } else {
+        document.body.innerHTML = "<h2 style='color:white;text-align:center;'>No website available for users yet</h2>";
+      }
+    }
+
+    function loadAdminPage() {
+      document.body.innerHTML = `
+        <div class="container">
+          <h1>Admin Settings</h1>
+          <label>Change Admin Password (current: ${adminPass}):</label><br />
+          <input type="text" id="newPass" placeholder="Enter new admin password" /><br />
+          <button onclick="changePassword('admin')">Update Admin Password</button>
+          <br /><br />
+
+          <label>Change Secondary Password (current: ${secondaryPass}):</label><br />
+          <input type="text" id="newPass2" placeholder="Enter new secondary password" /><br />
+          <button onclick="changePassword('secondary')">Update Secondary Password</button>
+          <br /><br />
+
+          <label>Upload Website HTML:</label><br />
+          <input type="file" id="fileInput" /><br /><br />
+          <button onclick="uploadWebsite()">Upload</button>
+          <br /><br />
+
+          <button onclick="clearWebsite()" style="background-color:red;">Remove Uploaded Website</button>
+        </div>
+      `;
+    }
+
+    function changePassword(type) {
+      if (type === "admin") {
+        let newPass = document.getElementById("newPass").value.trim();
+        if (newPass) {
+          localStorage.setItem("adminPass", newPass);
+          alert("Admin password updated successfully!");
+        } else {
+          alert("Enter valid password");
+        }
+      } else if (type === "secondary") {
+        let newPass2 = document.getElementById("newPass2").value.trim();
+        if (newPass2) {
+          localStorage.setItem("secondaryPass", newPass2);
+          alert("Secondary password updated successfully!");
+        } else {
+          alert("Enter valid password");
+        }
+      }
+    }
+
+    function uploadWebsite() {
+      let fileInput = document.getElementById("fileInput");
+      let file = fileInput.files[0];
+      if (!file) {
+        alert("Please select a file");
+        return;
+      }
+      let reader = new FileReader();
+      reader.onload = function (e) {
+        localStorage.setItem("userWebsite", e.target.result);
+        alert("Website uploaded successfully!");
+      };
+      reader.readAsText(file);
+    }
+
+    function clearWebsite() {
+      localStorage.removeItem("userWebsite");
+      alert("User website removed successfully!");
+    }
+  </script>
+</body>
+</html>
